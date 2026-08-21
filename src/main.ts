@@ -15,7 +15,11 @@ export default class GitHubSyncPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 		if (!this.settings.hostname) {
-			this.settings.hostname = Platform.isDesktop ? 'Desktop' : Platform.isIosApp ? 'iOS' : 'Android';
+			this.settings.hostname = Platform.isDesktop
+				? 'Desktop'
+				: Platform.isIosApp
+					? 'iOS'
+					: 'Android';
 			await this.saveSettings(true);
 		}
 
@@ -24,29 +28,57 @@ export default class GitHubSyncPlugin extends Plugin {
 
 		this.addSettingTab(new GitHubSyncSettingTab(this.app, this));
 
-		this.addRibbonIcon('git-compare', 'GitHub sync', () => void this.triggerSync());
-		this.addCommand({ id: 'sync-now', name: 'Sync now', callback: () => void this.triggerSync() });
-		this.addCommand({ id: 'force-sync', name: 'Force sync (ignore local cache)', callback: () => void this.triggerSync(false, true) });
-		this.addCommand({ id: 'sync-log', name: 'View sync log', callback: () => void this.openSyncLog() });
-		this.addCommand({ id: 'clear-sync-log', name: 'Clear sync log', callback: () => void this.clearSyncLog() });
+		this.addRibbonIcon(
+			'git-compare',
+			'GitHub sync',
+			() => void this.triggerSync(),
+		);
+		this.addCommand({
+			id: 'sync-now',
+			name: 'Sync now',
+			callback: () => void this.triggerSync(),
+		});
+		this.addCommand({
+			id: 'force-sync',
+			name: 'Force sync (ignore local cache)',
+			callback: () => void this.triggerSync(false, true),
+		});
+		this.addCommand({
+			id: 'sync-log',
+			name: 'View sync log',
+			callback: () => void this.openSyncLog(),
+		});
+		this.addCommand({
+			id: 'clear-sync-log',
+			name: 'Clear sync log',
+			callback: () => void this.clearSyncLog(),
+		});
 
 		this.app.workspace.onLayoutReady(() => {
 			this.initEngine();
-			if (this.settings.autoPullOnStartup && this.canSync()) void this.triggerSync(true);
+			if (this.settings.autoPullOnStartup && this.canSync())
+				void this.triggerSync(true);
 			this.setupScheduler();
 		});
 
-		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
-			if (!this.settings.autoSyncEnabled || this.settings.syncFrequencyMinutes === 0) return;
-			const now = Date.now();
-			if (now - this.lastLeafChange < 5000) return;
-			this.lastLeafChange = now;
-			const elapsed = now - this.settings.lastSyncTime;
-			const threshold = this.settings.syncFrequencyMinutes * 60 * 1000;
-			if (elapsed > threshold && this.canSync()) {
-				void this.triggerSync(true);
-			}
-		}));
+		this.registerEvent(
+			this.app.workspace.on('active-leaf-change', () => {
+				if (
+					!this.settings.autoSyncEnabled ||
+					this.settings.syncFrequencyMinutes === 0
+				)
+					return;
+				const now = Date.now();
+				if (now - this.lastLeafChange < 5000) return;
+				this.lastLeafChange = now;
+				const elapsed = now - this.settings.lastSyncTime;
+				const threshold =
+					this.settings.syncFrequencyMinutes * 60 * 1000;
+				if (elapsed > threshold && this.canSync()) {
+					void this.triggerSync(true);
+				}
+			}),
+		);
 	}
 
 	initEngine() {
@@ -59,7 +91,9 @@ export default class GitHubSyncPlugin extends Plugin {
 	}
 
 	canSync(): boolean {
-		return Boolean(this.settings.personalAccessToken && this.settings.githubUsername);
+		return Boolean(
+			this.settings.personalAccessToken && this.settings.githubUsername,
+		);
 	}
 
 	async triggerSync(isAuto = false, force = false) {
@@ -70,7 +104,10 @@ export default class GitHubSyncPlugin extends Plugin {
 		}
 		if (!this.canSync()) {
 			this.updateStatusBar('needs-setup');
-			if (!isAuto) new Notice('GitHub sync: Please configure your token and username.');
+			if (!isAuto)
+				new Notice(
+					'GitHub sync: Please configure your token and username.',
+				);
 			return;
 		}
 		this.syncing = true;
@@ -87,7 +124,7 @@ export default class GitHubSyncPlugin extends Plugin {
 			const entry = {
 				timestamp: Date.now(),
 				hostname: this.settings.hostname,
-				mode: isAuto ? 'auto' as const : 'manual' as const,
+				mode: isAuto ? ('auto' as const) : ('manual' as const),
 				uploaded: result.uploaded,
 				downloaded: result.downloaded,
 				conflicts: result.conflicts,
@@ -100,14 +137,15 @@ export default class GitHubSyncPlugin extends Plugin {
 			}
 			await this.saveSettings(false);
 		} catch (error: unknown) {
-			const message = error instanceof Error ? error.message : String(error);
+			const message =
+				error instanceof Error ? error.message : String(error);
 			this.updateStatusBar('error', message);
 			if (!isAuto) new Notice(`GitHub sync error: ${message}`);
 
 			const entry = {
 				timestamp: Date.now(),
 				hostname: this.settings.hostname,
-				mode: isAuto ? 'auto' as const : 'manual' as const,
+				mode: isAuto ? ('auto' as const) : ('manual' as const),
 				uploaded: 0,
 				downloaded: 0,
 				conflicts: 0,
@@ -125,16 +163,23 @@ export default class GitHubSyncPlugin extends Plugin {
 		}
 	}
 
-	updateStatusBar(status: 'idle' | 'syncing' | 'error' | 'offline' | 'needs-setup', detail = '') {
+	updateStatusBar(
+		status: 'idle' | 'syncing' | 'error' | 'offline' | 'needs-setup',
+		detail = '',
+	) {
 		if (!this.statusBarEl) return;
-		const dateStr = this.settings.lastSyncTime > 0 ? moment(this.settings.lastSyncTime).format('HH:mm:ss') : 'Never';
+		const dateStr =
+			this.settings.lastSyncTime > 0
+				? moment(this.settings.lastSyncTime).format('HH:mm:ss')
+				: 'Never';
 
 		this.statusBarEl.onclick = null;
 
 		switch (status) {
 			case 'needs-setup':
 				this.statusBarEl.setText('\u26a1 GitHub sync');
-				this.statusBarEl.title = 'Not configured \u2014 click to open settings';
+				this.statusBarEl.title =
+					'Not configured \u2014 click to open settings';
 				this.statusBarEl.onclick = () => {
 					void this.openSettings();
 				};
@@ -149,7 +194,8 @@ export default class GitHubSyncPlugin extends Plugin {
 				break;
 			case 'offline':
 				this.statusBarEl.setText('\u{1f4a4} Offline');
-				this.statusBarEl.title = 'GitHub sync: Device is offline. Sync suspended.';
+				this.statusBarEl.title =
+					'GitHub sync: Device is offline. Sync suspended.';
 				break;
 			case 'error':
 				this.statusBarEl.setText('\u26a0\ufe0f sync error');
@@ -174,7 +220,9 @@ export default class GitHubSyncPlugin extends Plugin {
 
 	private openSettings() {
 		// Obsidian internal API for opening settings — not in public types
-		const app = this.app as unknown as { setting?: { open: () => void; openTabById?: (id: string) => void } };
+		const app = this.app as unknown as {
+			setting?: { open: () => void; openTabById?: (id: string) => void };
+		};
 		app.setting?.open();
 		app.setting?.openTabById?.(this.manifest.id);
 	}
@@ -187,7 +235,9 @@ export default class GitHubSyncPlugin extends Plugin {
 		}
 		const lines = entries.map((e) => {
 			const date = moment(e.timestamp).format('YYYY-MM-DD HH:mm:ss');
-			const status = e.error ? `ERROR: ${e.error}` : `OK: \u2191${e.uploaded} \u2193${e.downloaded}`;
+			const status = e.error
+				? `ERROR: ${e.error}`
+				: `OK: \u2191${e.uploaded} \u2193${e.downloaded}`;
 			const extra = e.conflicts > 0 ? ` conflicts:${e.conflicts}` : '';
 			return `${date} [${e.hostname}] ${e.mode} ${status}${extra} (${e.duration}ms)`;
 		});
@@ -201,13 +251,22 @@ export default class GitHubSyncPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, (await this.loadData()) as Partial<GitHubSyncSettings>);
-		const tokenKey = 'obsidian-github-sync-token-' + this.app.vault.getName();
-		const securedToken = this.app.loadLocalStorage(tokenKey) as string | null;
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			(await this.loadData()) as Partial<GitHubSyncSettings>,
+		);
+		const tokenKey = 'sync-git-token-' + this.app.vault.getName();
+		const securedToken = this.app.loadLocalStorage(tokenKey) as
+			| string
+			| null;
 		if (securedToken) {
 			this.settings.personalAccessToken = securedToken;
 		} else if (this.settings.personalAccessToken) {
-			this.app.saveLocalStorage(tokenKey, this.settings.personalAccessToken);
+			this.app.saveLocalStorage(
+				tokenKey,
+				this.settings.personalAccessToken,
+			);
 		}
 
 		await this.ensureIgnoreFile();
@@ -232,7 +291,7 @@ export default class GitHubSyncPlugin extends Plugin {
 	}
 
 	async saveSettings(force = false) {
-		const tokenKey = 'obsidian-github-sync-token-' + this.app.vault.getName();
+		const tokenKey = 'sync-git-token-' + this.app.vault.getName();
 		const token = this.settings.personalAccessToken;
 		if (token) {
 			this.app.saveLocalStorage(tokenKey, token);
@@ -242,7 +301,8 @@ export default class GitHubSyncPlugin extends Plugin {
 
 		if (force) {
 			const settingsCopy = { ...this.settings };
-			delete (settingsCopy as Record<string, unknown>).personalAccessToken;
+			delete (settingsCopy as Record<string, unknown>)
+				.personalAccessToken;
 			await this.saveData(settingsCopy);
 		}
 	}

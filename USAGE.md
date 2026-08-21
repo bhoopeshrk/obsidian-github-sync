@@ -1,6 +1,6 @@
 # Usage guide
 
-This document covers detailed setup, authentication modes, commands, settings, and troubleshooting for RK's Obsidian GitHub Sync.
+This document covers detailed setup, authentication modes, commands, settings, and troubleshooting for SyncGit.
 
 ---
 
@@ -12,7 +12,7 @@ The plugin supports two authentication modes. Choose the one that fits your secu
 
 The plugin creates and manages a private GitHub repository automatically.
 
-1. Go to **Settings → RK's Obsidian GitHub Sync**.
+1. Go to **Settings → SyncGit**.
 2. Select **Automatic (recommended)** as the Setup mode.
 3. Enter your **GitHub username**.
 4. Click the link to generate a pre-configured classic token with the `repo` scope, or create one manually at [GitHub Settings → Tokens](https://github.com/settings/tokens/new?scopes=repo&description=Obsidian%20Sync%20Auto).
@@ -137,11 +137,11 @@ Choose **Keep local**, **Keep remote**, or **Keep both** (renames local copy wit
 ## Troubleshooting
 
 ### Plugin doesn't appear after install
-- Ensure `main.js` and `manifest.json` are at the top level of the plugin folder: `<Vault>/.obsidian/plugins/obsidian-github-sync/`.
+- Ensure `main.js` and `manifest.json` are at the top level of the plugin folder: `<Vault>/.obsidian/plugins/sync-git/`.
 - Reload Obsidian and check **Settings → Community plugins**.
 
 ### "Please configure your token and username"
-- Open **Settings → RK's Obsidian GitHub Sync** and verify your credentials.
+- Open **Settings → SyncGit** and verify your credentials.
 - The status bar shows ⚡ when not configured.
 
 ### Sync shows "Sync error"

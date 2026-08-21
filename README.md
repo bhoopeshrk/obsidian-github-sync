@@ -1,4 +1,4 @@
-# RK's Obsidian GitHub Sync
+# SyncGit
 
 Sync your Obsidian vault across all your devices — desktop, iOS, and Android — using GitHub's REST API. No local Git installation required.
 
@@ -6,7 +6,7 @@ Sync your Obsidian vault across all your devices — desktop, iOS, and Android �
 
 ## What is this?
 
-RK's Obsidian GitHub Sync is a community plugin that keeps your Obsidian vault synchronized across multiple devices using a private GitHub repository as the bridge. It handles three-way conflict resolution, offline detection, and cross-platform line-ending normalization automatically — so you can focus on your notes, not sync logistics.
+SyncGit is a community plugin that keeps your Obsidian vault synchronized across multiple devices using a private GitHub repository as the bridge. It handles three-way conflict resolution, offline detection, and cross-platform line-ending normalization automatically — so you can focus on your notes, not sync logistics.
 
 ---
 
@@ -32,14 +32,14 @@ RK's Obsidian GitHub Sync is a community plugin that keeps your Obsidian vault s
 
 ### Manual Install
 1. Download `main.js` and `manifest.json` from the [Releases](../../releases) page.
-2. Copy them to `<Vault>/.obsidian/plugins/obsidian-github-sync/`.
+2. Copy them to `<Vault>/.obsidian/plugins/sync-git/`.
 3. Restart Obsidian and enable the plugin under **Settings → Community plugins**.
 
 ---
 
 ## Quick start
 
-1. Open **Settings → RK's Obsidian GitHub Sync**.
+1. Open **Settings → SyncGit**.
 2. Select your **Setup mode** and enter your credentials.
 3. Click the ribbon icon (☁️) or run the **Sync now** command.
 
