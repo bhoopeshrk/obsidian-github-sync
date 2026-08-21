@@ -2,7 +2,7 @@
 	"id": "obsidian-github-sync",
 	"name": "RK's Obsidian GitHub Sync",
     "version": "1.0.0",
-	"minAppVersion": "1.8.7",
+	"minAppVersion": "1.13.0",
 	"description": "Sync your vault across devices using GitHub's REST API without requiring local Git.",
 	"author": "Bhoopesh R K",
 	"authorUrl": "https://github.com/bhoopeshrk",

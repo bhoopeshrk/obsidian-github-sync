@@ -16,9 +16,10 @@ export interface GitHubSyncSettings {
   syncFrequencyMinutes: number;
   autoPullOnStartup: boolean;
   autoSyncEnabled: boolean;
-  lastSyncState: Record<string, string>; // Maps filePath to last synced Git SHA
-  localHashCache?: Record<string, LocalHashCacheItem>;
+  lastSyncState: Record<string, string>;
+  localHashCache: Record<string, LocalHashCacheItem>;
   githubApiUrl: string;
+  lastSyncTime: number;
 }
 
 export const DEFAULT_SETTINGS: GitHubSyncSettings = {
@@ -34,4 +35,5 @@ export const DEFAULT_SETTINGS: GitHubSyncSettings = {
   lastSyncState: {},
   localHashCache: {},
   githubApiUrl: 'https://api.github.com',
+  lastSyncTime: 0,
 };

@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, Setting, type SettingDefinitionItem } from "obsidian";
 import type GitHubSyncPlugin from "./main";
 
 export class GitHubSyncSettingTab extends PluginSettingTab {
@@ -9,34 +9,105 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 		super(app, plugin);
 	}
 
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
+	getControlValue(key: string): unknown {
+		return (this.plugin.settings as unknown as Record<string, unknown>)[key];
+	}
 
-		new Setting(containerEl).setName("GitHub sync setup").setHeading();
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		(this.plugin.settings as unknown as Record<string, unknown>)[key] = value;
+		await this.plugin.saveSettings(true);
+		this.update();
+	}
 
-		new Setting(containerEl)
-			.setName("Setup mode")
-			.setDesc("Choose how you want to manage repository creation and token security.")
-			.addDropdown((d) =>
-				d
-					.addOption("auto_classic", "Automatic (auto-create private repos per vault)")
-					.addOption("manual_fine_grained", "Manual / high-security (scoped to specific repo)")
-					.setValue(this.plugin.settings.authMode)
-					.onChange(async (v) => {
-						this.plugin.settings.authMode = v as "auto_classic" | "manual_fine_grained";
-						await this.plugin.saveSettings();
-						this.display();
-					}),
-			);
-
-		if (this.plugin.settings.authMode === "auto_classic") {
-			this.renderClassicSection(containerEl);
-		} else {
-			this.renderFineGrainedSection(containerEl);
-		}
-
-		this.renderGeneralSettings(containerEl);
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				type: "group",
+				heading: "GitHub sync setup",
+				items: [
+					{
+						name: "Setup mode",
+						desc: "Choose how you want to manage repository creation and token security.",
+						control: {
+							type: "dropdown",
+							key: "authMode",
+							options: {
+								auto_classic: "Automatic (auto-create private repos per vault)",
+								manual_fine_grained: "Manual / high-security (scoped to specific repo)",
+							},
+						},
+					},
+					{
+						name: "Classic authentication",
+						visible: () => this.plugin.settings.authMode === "auto_classic",
+						render: (setting) => {
+							setting.setName("").setDesc("");
+							this.renderClassicSection(setting.settingEl);
+						},
+					},
+					{
+						name: "Fine-grained authentication",
+						visible: () => this.plugin.settings.authMode === "manual_fine_grained",
+						render: (setting) => {
+							setting.setName("").setDesc("");
+							this.renderFineGrainedSection(setting.settingEl);
+						},
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: "Sync rules and scheduling",
+				items: [
+					{
+						name: "Device hostname",
+						desc: "Identifies this machine in commit logs (e.g. MacBook-Pro, Work-iPad).",
+						control: {
+							type: "text",
+							key: "hostname",
+							placeholder: "Desktop",
+						},
+					},
+					{
+						name: "Sync frequency (minutes)",
+						desc: "Set to 0 to disable periodic background sync.",
+						control: {
+							type: "number",
+							key: "syncFrequencyMinutes",
+							min: 0,
+							max: 1440,
+							step: 1,
+							placeholder: "15",
+						},
+					},
+					{
+						name: "Auto pull on startup",
+						desc: "Pull remote changes when Obsidian starts.",
+						control: {
+							type: "toggle",
+							key: "autoPullOnStartup",
+						},
+					},
+					{
+						name: "Auto sync enabled",
+						desc: "Periodically commit and push local changes on a schedule.",
+						control: {
+							type: "toggle",
+							key: "autoSyncEnabled",
+						},
+					},
+					{
+						name: "GitHub API URL",
+						desc: "Default is https://api.github.com. Set a custom URL for self-hosted GitHub Enterprise.",
+						control: {
+							type: "text",
+							key: "githubApiUrl",
+							placeholder: "https://api.github.com",
+						},
+					},
+				],
+			},
+		];
 	}
 
 	private renderClassicSection(containerEl: HTMLElement): void {
@@ -68,7 +139,7 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.githubUsername)
 					.onChange(async (v) => {
 						this.plugin.settings.githubUsername = v.trim();
-						await this.plugin.saveSettings();
+						await this.plugin.saveSettings(true);
 					}),
 			);
 
@@ -81,7 +152,7 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.personalAccessToken)
 					.onChange(async (v) => {
 						this.plugin.settings.personalAccessToken = v.trim();
-						await this.plugin.saveSettings();
+						await this.plugin.saveSettings(true);
 					});
 			});
 
@@ -96,7 +167,7 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.customRepoName || "")
 					.onChange(async (val) => {
 						this.plugin.settings.customRepoName = val.trim();
-						await this.plugin.saveSettings();
+						await this.plugin.saveSettings(true);
 					}),
 			);
 	}
@@ -132,7 +203,7 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.githubUsername)
 					.onChange(async (v) => {
 						this.plugin.settings.githubUsername = v.trim();
-						await this.plugin.saveSettings();
+						await this.plugin.saveSettings(true);
 					}),
 			);
 
@@ -145,7 +216,7 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.customRepoName || "")
 					.onChange(async (v) => {
 						this.plugin.settings.customRepoName = v.trim();
-						await this.plugin.saveSettings();
+						await this.plugin.saveSettings(true);
 					}),
 			);
 
@@ -158,76 +229,8 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.personalAccessToken)
 					.onChange(async (v) => {
 						this.plugin.settings.personalAccessToken = v.trim();
-						await this.plugin.saveSettings();
+						await this.plugin.saveSettings(true);
 					});
 			});
-	}
-
-	private renderGeneralSettings(containerEl: HTMLElement): void {
-		new Setting(containerEl).setName("Sync rules and scheduling").setHeading();
-
-		new Setting(containerEl)
-			.setName("Device hostname")
-			.setDesc("Identifies this machine in commit logs (e.g. MacBook-Pro, Work-iPad).")
-			.addText((t) =>
-				t
-					.setPlaceholder("Desktop")
-					.setValue(this.plugin.settings.hostname)
-					.onChange(async (v) => {
-						this.plugin.settings.hostname = v;
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Sync frequency (minutes)")
-			.setDesc("Set to 0 to disable periodic background sync.")
-			.addText((t) =>
-				t
-					.setValue(String(this.plugin.settings.syncFrequencyMinutes))
-					.onChange(async (val) => {
-						this.plugin.settings.syncFrequencyMinutes = Number(val) || 0;
-						await this.plugin.saveSettings();
-						this.plugin.setupScheduler();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Auto pull on startup")
-			.setDesc("Pull remote changes when Obsidian starts.")
-			.addToggle((t) =>
-				t
-					.setValue(this.plugin.settings.autoPullOnStartup)
-					.onChange(async (v) => {
-						this.plugin.settings.autoPullOnStartup = v;
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Auto sync enabled")
-			.setDesc("Periodically commit and push local changes on a schedule.")
-			.addToggle((t) =>
-				t
-					.setValue(this.plugin.settings.autoSyncEnabled)
-					.onChange(async (v) => {
-						this.plugin.settings.autoSyncEnabled = v;
-						await this.plugin.saveSettings();
-						this.plugin.setupScheduler();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("GitHub API URL")
-			.setDesc("Default is https://api.github.com. Set a custom URL for self-hosted GitHub Enterprise.")
-			.addText((text) =>
-				text
-					.setPlaceholder("https://api.github.com")
-					.setValue(this.plugin.settings.githubApiUrl || "https://api.github.com")
-					.onChange(async (val) => {
-						this.plugin.settings.githubApiUrl = val.trim() || "https://api.github.com";
-						await this.plugin.saveSettings();
-					}),
-			);
 	}
 }

@@ -45,8 +45,23 @@ export class GitHubApiClient {
 				throw new Error(`GitHub API rate limited. Resuming in ~${waitMin} minute${waitMin === 1 ? '' : 's'}.`);
 			}
 		}
-		if (response.status >= 400) throw new Error(`GitHub API error [${response.status}]: ${response.text}`);
+		if (response.status >= 400) throw new Error(this.mapHttpError(response.status, response.text));
 		return response.json as unknown;
+	}
+
+	private mapHttpError(status: number, body: string): string {
+		switch (status) {
+			case 401:
+				return 'GitHub token is invalid or expired. Update it in plugin settings.';
+			case 403:
+				return 'Permission denied. Check that your token has the required scopes (repo).';
+			case 404:
+				return 'Repository not found. Verify the repo name and that your token has access.';
+			case 422:
+				return 'GitHub rejected the request (422). This may be a merge conflict — retry the sync.';
+			default:
+				return `GitHub API error [${status}]: ${body}`;
+		}
 	}
 
 	async ensureRepoExists(repo: string): Promise<void> {

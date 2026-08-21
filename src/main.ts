@@ -9,13 +9,14 @@ export default class GitHubSyncPlugin extends Plugin {
 	syncEngine!: SyncEngine;
 	statusBarEl!: HTMLElement;
 	private syncIntervalId: number | null = null;
-	private lastSyncTime: number = 0;
+	private syncing = false;
+	private lastLeafChange = 0;
 
 	async onload() {
 		await this.loadSettings();
 		if (!this.settings.hostname) {
 			this.settings.hostname = Platform.isDesktop ? 'Desktop' : Platform.isIosApp ? 'iOS' : 'Android';
-			await this.saveSettings();
+			await this.saveSettings(true);
 		}
 
 		this.statusBarEl = this.addStatusBarItem();
@@ -34,7 +35,10 @@ export default class GitHubSyncPlugin extends Plugin {
 
 		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
 			if (!this.settings.autoSyncEnabled || this.settings.syncFrequencyMinutes === 0) return;
-			const elapsed = Date.now() - this.lastSyncTime;
+			const now = Date.now();
+			if (now - this.lastLeafChange < 5000) return;
+			this.lastLeafChange = now;
+			const elapsed = now - this.settings.lastSyncTime;
 			const threshold = this.settings.syncFrequencyMinutes * 60 * 1000;
 			if (elapsed > threshold && this.canSync()) {
 				void this.triggerSync(true);
@@ -56,6 +60,7 @@ export default class GitHubSyncPlugin extends Plugin {
 	}
 
 	async triggerSync(isAuto = false) {
+		if (this.syncing) return;
 		if (isAuto && typeof navigator !== 'undefined' && !navigator.onLine) {
 			this.updateStatusBar('offline');
 			return;
@@ -64,22 +69,27 @@ export default class GitHubSyncPlugin extends Plugin {
 			if (!isAuto) new Notice('GitHub sync: Please configure your token and username.');
 			return;
 		}
+		this.syncing = true;
 		this.updateStatusBar('syncing');
 		try {
 			if (!isAuto) new Notice('Syncing with GitHub...');
-			await this.syncEngine.runSync(isAuto);
-			this.lastSyncTime = Date.now();
-			await this.saveSettings();
+			const result = await this.syncEngine.runSync(isAuto, (text) => {
+				this.updateStatusBar('syncing', text);
+			});
+			this.settings.lastSyncTime = Date.now();
+			await this.saveSettings(result.stateChanged);
 			this.updateStatusBar('idle');
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : String(error);
 			this.updateStatusBar('error', message);
+		} finally {
+			this.syncing = false;
 		}
 	}
 
 	updateStatusBar(status: 'idle' | 'syncing' | 'error' | 'offline', detail = '') {
 		if (!this.statusBarEl) return;
-		const dateStr = this.lastSyncTime > 0 ? moment(this.lastSyncTime).format('HH:mm:ss') : 'Never';
+		const dateStr = this.settings.lastSyncTime > 0 ? moment(this.settings.lastSyncTime).format('HH:mm:ss') : 'Never';
 
 		switch (status) {
 			case 'idle':
@@ -124,9 +134,29 @@ export default class GitHubSyncPlugin extends Plugin {
 		} else if (this.settings.personalAccessToken) {
 			this.app.saveLocalStorage(tokenKey, this.settings.personalAccessToken);
 		}
+
+		await this.ensureIgnoreFile();
 	}
 
-	async saveSettings() {
+	private async ensureIgnoreFile(): Promise<void> {
+		const ignorePath = `${this.app.vault.configDir}/.obsidian-sync-ignore`;
+		try {
+			await this.app.vault.adapter.read(ignorePath);
+		} catch {
+			const defaults = [
+				'# Files to exclude from GitHub sync',
+				'# One pattern per line. Lines starting with # are comments.',
+				'workspace.json',
+				'workspace-mobile.json',
+				'app.json',
+				'hotkeys.json',
+				'.trash',
+			].join('\n');
+			await this.app.vault.adapter.write(ignorePath, defaults);
+		}
+	}
+
+	async saveSettings(force = false) {
 		const tokenKey = 'obsidian-github-sync-token-' + this.app.vault.getName();
 		const token = this.settings.personalAccessToken;
 		if (token) {
@@ -135,10 +165,11 @@ export default class GitHubSyncPlugin extends Plugin {
 			this.app.saveLocalStorage(tokenKey, null);
 		}
 
-		const settingsCopy = { ...this.settings };
-		delete (settingsCopy as Record<string, unknown>).personalAccessToken;
-
-		await this.saveData(settingsCopy);
+		if (force) {
+			const settingsCopy = { ...this.settings };
+			delete (settingsCopy as Record<string, unknown>).personalAccessToken;
+			await this.saveData(settingsCopy);
+		}
 		this.initEngine();
 	}
 }

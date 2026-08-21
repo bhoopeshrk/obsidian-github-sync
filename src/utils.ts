@@ -32,14 +32,20 @@ export function generateCommitMessage(hostname: string, format: string, files: s
   return title + body;
 }
 
+const BINARY_EXTENSIONS = new Set([
+	'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'ico', 'tiff', 'tif',
+	'mp3', 'mp4', 'wav', 'ogg', 'flac', 'aac', 'wma',
+	'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+	'zip', 'tar', 'gz', 'bz2', '7z', 'rar', 'xz',
+	'exe', 'dll', 'so', 'dylib', 'bin',
+	'woff', 'woff2', 'ttf', 'otf', 'eot',
+	'sqlite', 'db',
+]);
+
 export function isTextFile(path: string): boolean {
-  const ext = path.split('.').pop()?.toLowerCase();
-  return [
-    'md', 'txt', 'json', 'css', 'js', 'ts', 'canvas',
-    'yaml', 'yml', 'xml', 'html', 'htm', 'csv', 'svg',
-    'toml', 'ini', 'cfg', 'env', 'gitignore', 'editorconfig',
-    'license', 'py', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h',
-  ].includes(ext || '');
+	const ext = path.split('.').pop()?.toLowerCase();
+	if (!ext) return true;
+	return !BINARY_EXTENSIONS.has(ext);
 }
 
 export function normalizeTextBuffer(buffer: ArrayBuffer): ArrayBuffer {
