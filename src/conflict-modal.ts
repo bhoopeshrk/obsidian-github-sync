@@ -6,7 +6,7 @@ export class ConflictModal extends Modal {
   constructor(
     app: App,
     private filePath: string,
-    private resolve: (choice: 'local' | 'remote' | 'both' | 'cancel') => void
+    private resolve: (choice: 'local' | 'remote' | 'both') => void
   ) {
     super(app);
   }
@@ -24,7 +24,7 @@ export class ConflictModal extends Modal {
 
   onClose() {
     if (!this.resolved) {
-      this.resolve('cancel');
+      this.resolve('both');
     }
     this.contentEl.empty();
   }

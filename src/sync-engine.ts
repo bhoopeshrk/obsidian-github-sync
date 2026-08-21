@@ -11,6 +11,8 @@ import {
 import { ConflictModal } from "./conflict-modal";
 
 export class SyncEngine {
+	private ignorePatterns: string[] = [];
+
 	constructor(
 		private app: App,
 		private settings: GitHubSyncSettings,
@@ -47,13 +49,32 @@ export class SyncEngine {
 
 	private isIgnored(path: string): boolean {
 		const configDir = this.app.vault.configDir;
-		return path.startsWith(`${configDir}/`) || path.includes(".trash");
+		if (path.startsWith(`${configDir}/`) || path.includes(".trash")) return true;
+
+		for (const pattern of this.ignorePatterns) {
+			if (pattern && path.includes(pattern)) return true;
+		}
+		return false;
+	}
+
+	private async loadIgnoreFile(): Promise<string[]> {
+		const ignoreFile = `${this.app.vault.configDir}/.obsidian-sync-ignore`;
+		try {
+			const content = await this.app.vault.adapter.read(ignoreFile);
+			return content
+				.split("\n")
+				.map((l) => l.trim())
+				.filter((l) => l.length > 0 && !l.startsWith("#"));
+		} catch {
+			return [];
+		}
 	}
 
 	async runSync(isAuto = false): Promise<void> {
 		let retries = 3;
 		while (retries > 0) {
 			try {
+				this.ignorePatterns = await this.loadIgnoreFile();
 				const skippedFiles: string[] = [];
 				const repo = await this.getRepoName();
 				const latestCommitSha = await this.api.getLatestCommitSha(repo);
@@ -271,7 +292,7 @@ export class SyncEngine {
 					await new Promise((resolve) => window.setTimeout(resolve, 2000));
 					continue;
 				}
-				if (!isAuto) {
+				if (!isAuto || message.includes("rate limit")) {
 					new Notice(`GitHub sync error: ${message}`);
 				}
 				throw error;

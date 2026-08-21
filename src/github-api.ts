@@ -37,7 +37,15 @@ export class GitHubApiClient {
 			body: options.body,
 		});
 
-		if (response.status >= 400) throw new Error(`GitHub API Error [${response.status}]: ${response.text}`);
+		if (response.status === 403) {
+			const reset = response.headers['x-ratelimit-reset'];
+			if (reset) {
+				const resetMs = Number(reset) * 1000;
+				const waitMin = Math.max(0, Math.ceil((resetMs - Date.now()) / 60000));
+				throw new Error(`GitHub API rate limited. Resuming in ~${waitMin} minute${waitMin === 1 ? '' : 's'}.`);
+			}
+		}
+		if (response.status >= 400) throw new Error(`GitHub API error [${response.status}]: ${response.text}`);
 		return response.json as unknown;
 	}
 

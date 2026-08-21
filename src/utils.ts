@@ -34,7 +34,12 @@ export function generateCommitMessage(hostname: string, format: string, files: s
 
 export function isTextFile(path: string): boolean {
   const ext = path.split('.').pop()?.toLowerCase();
-  return ['md', 'txt', 'json', 'css', 'js', 'ts', 'canvas'].includes(ext || '');
+  return [
+    'md', 'txt', 'json', 'css', 'js', 'ts', 'canvas',
+    'yaml', 'yml', 'xml', 'html', 'htm', 'csv', 'svg',
+    'toml', 'ini', 'cfg', 'env', 'gitignore', 'editorconfig',
+    'license', 'py', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h',
+  ].includes(ext || '');
 }
 
 export function normalizeTextBuffer(buffer: ArrayBuffer): ArrayBuffer {
