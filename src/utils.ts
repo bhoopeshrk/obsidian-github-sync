@@ -19,13 +19,13 @@ export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   let binary = '';
   const bytes = new Uint8Array(buffer);
   for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
+    binary += String.fromCharCode(bytes[i]!);
   }
   return window.btoa(binary);
 }
 
 export function generateCommitMessage(hostname: string, format: string, files: string[]): string {
-  const dateStr = (moment as any)().format(format);
+  const dateStr = moment().format(format);
   const host = hostname || 'Unknown-Device';
   const title = `Sync/Auto sync from ${host}: ${dateStr}`;
   const body = files.length > 0 ? `\n\nChanged files:\n${files.map(f => `- ${f}`).join('\n')}` : '';
