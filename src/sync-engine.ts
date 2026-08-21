@@ -1,4 +1,4 @@
-import { App, Notice, moment } from "obsidian";
+import { App, Notice, moment, normalizePath } from "obsidian";
 import { GitHubApiClient } from "./github-api";
 import { GitHubSyncSettings } from "./types";
 import {
@@ -200,7 +200,7 @@ export class SyncEngine {
 
         // Execute Local Deletions FIRST
         for (const path of filesToDeleteLocally) {
-          const file = this.app.vault.getAbstractFileByPath(path);
+          const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
           if (file) {
             // move to system trash (true) or obsidian trash (false)
             await this.app.vault.trash(file, true);
@@ -215,18 +215,19 @@ export class SyncEngine {
             repo,
             remoteFiles.get(path)!,
           );
-          const existingFile = this.app.vault.getAbstractFileByPath(path);
-          if (existingFile)
-            await this.app.vault.adapter.writeBinary(path, buffer);
-          else {
-            const folders = path.split("/");
+          const normalizedPath = normalizePath(path);
+          const existingFile = this.app.vault.getAbstractFileByPath(normalizedPath);
+          if (existingFile) {
+            await this.app.vault.adapter.writeBinary(normalizedPath, buffer);
+          } else {
+            const folders = normalizedPath.split("/");
             folders.pop();
             if (folders.length > 0) {
-              const dir = folders.join("/");
+              const dir = normalizePath(folders.join("/"));
               if (!(await this.app.vault.adapter.exists(dir)))
                 await this.app.vault.adapter.mkdir(dir);
             }
-            await this.app.vault.adapter.writeBinary(path, buffer);
+            await this.app.vault.adapter.writeBinary(normalizedPath, buffer);
           }
           this.settings.lastSyncState[path] = remoteFiles.get(path)!; // Update base cache
         }
@@ -318,13 +319,13 @@ export class SyncEngine {
         } else if (choice === "remote") {
           filesToDownload.push(path);
         } else if (choice === "both") {
-          const file = this.app.vault.getAbstractFileByPath(path);
+          const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
           if (file) {
             const extIndex = path.lastIndexOf(".");
             const base = extIndex !== -1 ? path.slice(0, extIndex) : path;
             const ext = extIndex !== -1 ? path.slice(extIndex) : "";
             const dateStr = (moment as any)().format("YYYY-MM-DD");
-            const conflictPath = `${base} (Local Conflict ${dateStr})${ext}`;
+            const conflictPath = normalizePath(`${base} (Local Conflict ${dateStr})${ext}`);
             try {
               await this.app.vault.rename(file, conflictPath);
             } catch (err) {
@@ -334,6 +335,7 @@ export class SyncEngine {
           }
           filesToDownload.push(path);
         }
+        // If choice === 'cancel', we simply skip this file (no-op)
         resolve();
       }).open();
     });

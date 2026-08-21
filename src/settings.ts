@@ -12,9 +12,8 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "GitHub Sync Settings" });
 
-    new Setting(containerEl).setName("Setup Mode").addDropdown((d) =>
+    new Setting(containerEl).setName("Setup mode").addDropdown((d) =>
       d
         .addOption("auto_classic", "Automatic (Classic PAT)")
         .addOption("manual_fine_grained", "Manual (Fine-Grained PAT)")
@@ -26,23 +25,25 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
         }),
     );
 
-    new Setting(containerEl)
-      .setName("Custom Repo Name (Optional)")
-      .setDesc(
-        "Leave blank to auto-derive from vault name, or specify an existing repo to connect to.",
-      )
-      .addText((text) =>
-        text
-          .setPlaceholder(`obsidian-${this.app.vault.getName().toLowerCase()}`)
-          .setValue(this.plugin.settings.customRepoName || "")
-          .onChange(async (val) => {
-            this.plugin.settings.customRepoName = val.trim();
-            await this.plugin.saveSettings();
-          }),
-      );
+    if (this.plugin.settings.authMode === "auto_classic") {
+      new Setting(containerEl)
+        .setName("Custom repository name (optional)")
+        .setDesc(
+          "Leave blank to auto-derive from vault name, or specify an existing repo to connect to.",
+        )
+        .addText((text) =>
+          text
+            .setPlaceholder(`obsidian-${this.app.vault.getName().toLowerCase()}`)
+            .setValue(this.plugin.settings.customRepoName || "")
+            .onChange(async (val) => {
+              this.plugin.settings.customRepoName = val.trim();
+              await this.plugin.saveSettings();
+            }),
+        );
+    }
 
     new Setting(containerEl)
-      .setName("Personal Access Token")
+      .setName("Personal access token")
       .setDesc("Token is stored securely in this vault.")
       .addText((t) => {
         t.inputEl.type = "password";
@@ -56,7 +57,7 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 
     if (this.plugin.settings.authMode === "manual_fine_grained") {
       new Setting(containerEl)
-        .setName("Target Repository Name")
+        .setName("Target repository name")
         .setDesc("Existing GitHub repo name (e.g. my-vault)")
         .addText((t) =>
           t
@@ -71,7 +72,7 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
     containerEl.createEl("h3", { text: "Preferences" });
 
     new Setting(containerEl)
-      .setName("Device Hostname")
+      .setName("Device hostname")
       .setDesc("Used in commit logs.")
       .addText((t) =>
         t.setValue(this.plugin.settings.hostname).onChange(async (v) => {
@@ -111,7 +112,7 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Sync Frequency (Minutes)")
+      .setName("Sync frequency (minutes)")
       .setDesc("0 to disable auto-sync.")
       .addText((t) =>
         t

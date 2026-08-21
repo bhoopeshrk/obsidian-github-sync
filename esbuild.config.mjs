@@ -26,11 +26,12 @@ const context = await esbuild.context({
     "@lezer/lr",
     ...builtinModules],
   format: "cjs",
-  target: "es2018",
+  target: "es2021",
   logLevel: "info",
   sourcemap: prod ? false : "inline",
   treeShaking: true,
   outfile: "main.js",
+  minify: prod,
 });
 
 if (prod) {
