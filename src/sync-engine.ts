@@ -1,6 +1,6 @@
 import { App, Notice, moment, normalizePath } from 'obsidian';
 import { GitHubApiClient } from './github-api';
-import { GitHubSyncSettings } from './types';
+import { GitHubSyncSettings, ConflictInfo } from './types';
 import {
 	calculateGitSha,
 	arrayBufferToBase64,
@@ -12,6 +12,11 @@ import { ConflictModal } from './conflict-modal';
 
 export interface SyncResult {
 	stateChanged: boolean;
+	uploaded: number;
+	downloaded: number;
+	conflicts: number;
+	skipped: number;
+	duration: number;
 }
 
 export class SyncEngine {
@@ -86,10 +91,12 @@ export class SyncEngine {
 		onProgress?: (text: string) => void,
 	): Promise<SyncResult> {
 		this.ignorePatterns = await this.loadIgnoreFile();
+		const startTime = Date.now();
 		let retries = 3;
 		while (retries > 0) {
 			try {
 				const skippedFiles: string[] = [];
+				let conflicts = 0;
 				const repo = await this.getRepoName();
 				const latestCommitSha = await this.api.getLatestCommitSha(repo);
 				const remoteTree = await this.api.getTree(
@@ -213,7 +220,7 @@ export class SyncEngine {
 							filesToDownload.push(path);
 						}
 					} else if (localSha && !remoteSha) {
-						if (baseSha === localSha) {
+						if (baseSha === localSha || !baseSha) {
 							filesToDeleteLocally.push(path);
 						} else {
 							filesToUpload.push(path);
@@ -229,11 +236,23 @@ export class SyncEngine {
 						} else if (!baseSha) {
 							filesToDownload.push(path);
 						} else {
+							const localContent = await this.app.vault.adapter.readBinary(path);
+							const localLines = new TextDecoder().decode(localContent).split('\n').length;
+							const conflictInfo: ConflictInfo = {
+								filePath: path,
+								localSize: localContent.byteLength,
+								localLines,
+								remoteSize,
+								remoteLines: 0,
+								localTimestamp: localFile?.stat.mtime ?? 0,
+								remoteTimestamp: 0,
+							};
 							await this.promptConflictResolution(
-								path,
+								conflictInfo,
 								filesToUpload,
 								filesToDownload,
 							);
+							conflicts++;
 						}
 					}
 				}
@@ -354,10 +373,39 @@ export class SyncEngine {
 					filesToUpload.length > 0 ||
 					skippedFiles.length > 0
 				) {
-					let msg = `GitHub sync complete.\nUploaded: ${filesToUpload.length}\nDownloaded: ${filesToDownload.length}`;
-					if (skippedFiles.length > 0) {
-						msg += `\n⚠️ Skipped ${skippedFiles.length} file(s) exceeding 25MB limit.`;
+					const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+					const totalChanged = filesToDownload.length + filesToUpload.length;
+					let msg = '';
+
+					if (totalChanged <= 5 && totalChanged > 0) {
+						msg = 'GitHub sync complete.\n';
+						for (const p of filesToDownload) {
+							msg += `\u2190 ${p.split('/').pop()}\n`;
+						}
+						for (const p of filesToUpload) {
+							msg += `\u2192 ${p.split('/').pop()}\n`;
+						}
+						msg = msg.trimEnd();
+					} else if (totalChanged > 5) {
+						const noteCount = filesToDownload.concat(filesToUpload).filter((p) => p.endsWith('.md')).length;
+						const imageCount = filesToDownload.concat(filesToUpload).filter((p) => /\.(png|jpg|jpeg|gif|svg|webp|bmp|ico)$/i.test(p)).length;
+						const otherCount = totalChanged - noteCount - imageCount;
+						const parts: string[] = [];
+						if (noteCount > 0) parts.push(`${noteCount} note${noteCount > 1 ? 's' : ''}`);
+						if (imageCount > 0) parts.push(`${imageCount} image${imageCount > 1 ? 's' : ''}`);
+						if (otherCount > 0) parts.push(`${otherCount} other file${otherCount > 1 ? 's' : ''}`);
+						msg = `GitHub sync complete. ${parts.join(', ')}`;
+					} else {
+						msg = 'GitHub sync complete. No changes.';
 					}
+
+					if (conflicts > 0) {
+						msg += `\n\u26a0\ufe0f ${conflicts} conflict${conflicts > 1 ? 's' : ''} resolved.`;
+					}
+					if (skippedFiles.length > 0) {
+						msg += `\n\u26a0\ufe0f Skipped ${skippedFiles.length} file(s) exceeding 25MB limit.`;
+					}
+					msg += `\n(in ${duration}s)`;
 					new Notice(msg);
 				}
 
@@ -367,7 +415,14 @@ export class SyncEngine {
 					);
 				}
 
-				return { stateChanged };
+				return {
+					stateChanged,
+					uploaded: filesToUpload.length,
+					downloaded: filesToDownload.length,
+					conflicts,
+					skipped: skippedFiles.length,
+					duration: Date.now() - startTime,
+				};
 			} catch (error: unknown) {
 				const message =
 					error instanceof Error ? error.message : String(error);
@@ -384,31 +439,38 @@ export class SyncEngine {
 				throw error;
 			}
 		}
-		return { stateChanged: false };
+		return {
+			stateChanged: false,
+			uploaded: 0,
+			downloaded: 0,
+			conflicts: 0,
+			skipped: 0,
+			duration: Date.now() - startTime,
+		};
 	}
 
 	private async promptConflictResolution(
-		path: string,
+		info: ConflictInfo,
 		filesToUpload: string[],
 		filesToDownload: string[],
 	): Promise<void> {
 		return new Promise<void>((resolve) => {
-			new ConflictModal(this.app, path, (choice) => {
+			new ConflictModal(this.app, info, (choice) => {
 				if (choice === 'local') {
-					filesToUpload.push(path);
+					filesToUpload.push(info.filePath);
 					resolve();
 				} else if (choice === 'remote') {
-					filesToDownload.push(path);
+					filesToDownload.push(info.filePath);
 					resolve();
 				} else if (choice === 'both') {
 					const file = this.app.vault.getAbstractFileByPath(
-						normalizePath(path),
+						normalizePath(info.filePath),
 					);
 					if (file) {
-						const extIndex = path.lastIndexOf('.');
+						const extIndex = info.filePath.lastIndexOf('.');
 						const base =
-							extIndex !== -1 ? path.slice(0, extIndex) : path;
-						const ext = extIndex !== -1 ? path.slice(extIndex) : '';
+							extIndex !== -1 ? info.filePath.slice(0, extIndex) : info.filePath;
+						const ext = extIndex !== -1 ? info.filePath.slice(extIndex) : '';
 						const dateStr = moment().format('YYYY-MM-DD');
 						const conflictPath = normalizePath(
 							`${base} (Local Conflict ${dateStr})${ext}`,
@@ -416,17 +478,17 @@ export class SyncEngine {
 						void this.app.vault
 							.rename(file, conflictPath)
 							.then(() => {
-								filesToDownload.push(path);
+								filesToDownload.push(info.filePath);
 								resolve();
 							})
 							.catch(() => {
 								new Notice(
-									`Failed to rename conflict file: ${path}. Skipping download to preserve local changes.`,
+									`Failed to rename conflict file: ${info.filePath}. Skipping download to preserve local changes.`,
 								);
 								resolve();
 							});
 					} else {
-						filesToDownload.push(path);
+						filesToDownload.push(info.filePath);
 						resolve();
 					}
 				}

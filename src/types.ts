@@ -6,6 +6,28 @@ export interface LocalHashCacheItem {
   sha: string;
 }
 
+export interface ConflictInfo {
+  filePath: string;
+  localSize: number;
+  localLines: number;
+  remoteSize: number;
+  remoteLines: number;
+  localTimestamp: number;
+  remoteTimestamp: number;
+}
+
+export interface SyncLogEntry {
+  timestamp: number;
+  hostname: string;
+  mode: "auto" | "manual";
+  uploaded: number;
+  downloaded: number;
+  conflicts: number;
+  skipped: number;
+  duration: number;
+  error?: string;
+}
+
 export interface GitHubSyncSettings {
   authMode: AuthMode;
   githubUsername: string;
@@ -20,6 +42,7 @@ export interface GitHubSyncSettings {
   localHashCache: Record<string, LocalHashCacheItem>;
   githubApiUrl: string;
   lastSyncTime: number;
+  syncLog: SyncLogEntry[];
 }
 
 export const DEFAULT_SETTINGS: GitHubSyncSettings = {
@@ -36,4 +59,5 @@ export const DEFAULT_SETTINGS: GitHubSyncSettings = {
   localHashCache: {},
   githubApiUrl: 'https://api.github.com',
   lastSyncTime: 0,
+  syncLog: [],
 };

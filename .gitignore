@@ -23,3 +23,4 @@ data.json
 
 # Add any other files or directories you want to ignore below this line
 docs/
+tasks/
