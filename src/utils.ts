@@ -53,3 +53,28 @@ export function normalizeTextBuffer(buffer: ArrayBuffer): ArrayBuffer {
   const normalized = text.replace(/\r\n/g, '\n');
   return new TextEncoder().encode(normalized).buffer;
 }
+
+export function globToRegex(glob: string): RegExp {
+	const pattern = glob.trim();
+	if (pattern.length === 0) return /^$/;
+
+	let regStr = pattern
+		.replace(/[.+^${}()|[\]\\]/g, '\\$&') // escape regex characters except * and ?
+		.replace(/\*\*/g, '.*')
+		.replace(/\*/g, '[^/]*')
+		.replace(/\?/g, '[^/]');
+
+	if (pattern.startsWith('/')) {
+		regStr = '^' + regStr.slice(1);
+	} else {
+		regStr = '(?:^|/)' + regStr;
+	}
+
+	if (pattern.endsWith('/')) {
+		regStr += '.*';
+	} else {
+		regStr += '(?:$|/)';
+	}
+
+	return new RegExp(regStr, 'i');
+}

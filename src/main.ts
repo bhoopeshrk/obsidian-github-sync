@@ -20,8 +20,10 @@ export default class GitHubSyncPlugin extends Plugin {
 				: Platform.isIosApp
 					? 'iOS'
 					: 'Android';
-			await this.saveSettings(true);
+			await this.saveSettings();
 		}
+
+		this.initEngine();
 
 		this.statusBarEl = this.addStatusBarItem();
 		this.updateStatusBar(this.canSync() ? 'offline' : 'needs-setup');
@@ -55,7 +57,6 @@ export default class GitHubSyncPlugin extends Plugin {
 		});
 
 		this.app.workspace.onLayoutReady(() => {
-			this.initEngine();
 			if (this.settings.autoPullOnStartup && this.canSync())
 				void this.triggerSync(true);
 			this.setupScheduler();
@@ -118,7 +119,7 @@ export default class GitHubSyncPlugin extends Plugin {
 				this.updateStatusBar('syncing', text);
 			});
 			this.settings.lastSyncTime = Date.now();
-			await this.saveSettings(result.stateChanged);
+			await this.saveSettings();
 			this.updateStatusBar('idle');
 
 			const entry = {
@@ -135,7 +136,7 @@ export default class GitHubSyncPlugin extends Plugin {
 			if (this.settings.syncLog.length > 50) {
 				this.settings.syncLog = this.settings.syncLog.slice(-50);
 			}
-			await this.saveSettings(false);
+			await this.saveSettings();
 		} catch (error: unknown) {
 			const message =
 				error instanceof Error ? error.message : String(error);
@@ -157,7 +158,7 @@ export default class GitHubSyncPlugin extends Plugin {
 			if (this.settings.syncLog.length > 50) {
 				this.settings.syncLog = this.settings.syncLog.slice(-50);
 			}
-			await this.saveSettings(false);
+			await this.saveSettings();
 		} finally {
 			this.syncing = false;
 		}
@@ -246,7 +247,7 @@ export default class GitHubSyncPlugin extends Plugin {
 
 	private async clearSyncLog() {
 		this.settings.syncLog = [];
-		await this.saveSettings(true);
+		await this.saveSettings();
 		new Notice('Sync log cleared.');
 	}
 
@@ -290,7 +291,7 @@ export default class GitHubSyncPlugin extends Plugin {
 		}
 	}
 
-	async saveSettings(force = false) {
+	async saveSettings(_force?: boolean) {
 		const tokenKey = 'sync-git-token-' + this.app.vault.getName();
 		const token = this.settings.personalAccessToken;
 		if (token) {
@@ -299,12 +300,9 @@ export default class GitHubSyncPlugin extends Plugin {
 			this.app.saveLocalStorage(tokenKey, null);
 		}
 
-		if (force) {
-			const settingsCopy = { ...this.settings };
-			delete (settingsCopy as Record<string, unknown>)
-				.personalAccessToken;
-			await this.saveData(settingsCopy);
-		}
+		const settingsCopy = { ...this.settings };
+		delete (settingsCopy as Record<string, unknown>).personalAccessToken;
+		await this.saveData(settingsCopy);
 	}
 
 	reinitEngine() {
