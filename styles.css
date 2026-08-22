@@ -10,8 +10,9 @@
 	gap: var(--size-2-2);
 }
 
-.ghs-token-input {
-	flex: 1 1 0;
+.ghs-token-setting .setting-item-control input.ghs-token-input {
+	flex: 1 1 auto !important;
+	width: 100% !important;
 	min-width: 0;
 	font-family: var(--font-monospace);
 }
@@ -275,6 +276,13 @@
 	.ghs-conflict-modal .setting-item-control button {
 		width: 100%;
 		justify-content: center;
+	}
+
+	/* Ensure token input fills mobile control row width */
+	.ghs-token-setting .setting-item-control {
+		width: 100% !important;
+		display: flex !important;
+		justify-content: stretch !important;
 	}
 }
 
