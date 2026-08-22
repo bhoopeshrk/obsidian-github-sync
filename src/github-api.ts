@@ -116,7 +116,7 @@ export class GitHubApiClient {
 						}),
 					});
 					return commit.sha;
-				} catch (innerError) {
+				} catch {
 					throw e;
 				}
 			}
