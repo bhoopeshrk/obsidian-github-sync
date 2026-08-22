@@ -29,10 +29,22 @@ export class ConflictModal extends Modal {
     headerRow.createEl("th", { text: "Local" });
     headerRow.createEl("th", { text: "Remote" });
 
+    const formatSize = (bytes: number) => {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    const formatTime = (ts: number) => {
+      if (ts <= 0) return "unknown";
+      const m = moment(ts);
+      return `${m.fromNow()} (${m.format("YYYY-MM-DD HH:mm")})`;
+    };
+
     const sizeRow = table.createEl("tr");
     sizeRow.createEl("td", { text: "Size" });
-    sizeRow.createEl("td", { text: `${info.localSize} bytes` });
-    sizeRow.createEl("td", { text: `${info.remoteSize} bytes` });
+    sizeRow.createEl("td", { text: formatSize(info.localSize) });
+    sizeRow.createEl("td", { text: formatSize(info.remoteSize) });
 
     const linesRow = table.createEl("tr");
     linesRow.createEl("td", { text: "Lines" });
@@ -41,12 +53,23 @@ export class ConflictModal extends Modal {
 
     const timeRow = table.createEl("tr");
     timeRow.createEl("td", { text: "Modified" });
-    timeRow.createEl("td", {
-      text: info.localTimestamp > 0 ? moment(info.localTimestamp).format("YYYY-MM-DD HH:mm") : "unknown",
-    });
-    timeRow.createEl("td", {
-      text: info.remoteTimestamp > 0 ? moment(info.remoteTimestamp).format("YYYY-MM-DD HH:mm") : "unknown",
-    });
+    timeRow.createEl("td", { text: formatTime(info.localTimestamp) });
+    timeRow.createEl("td", { text: formatTime(info.remoteTimestamp) });
+
+    if (info.localContentPreview || info.remoteContentPreview) {
+      const details = contentEl.createEl("details", { cls: "ghs-conflict-preview-details" });
+      details.createEl("summary", { text: "Preview content differences" });
+      
+      const previewGrid = details.createDiv({ cls: "ghs-conflict-preview-grid" });
+      
+      const localCol = previewGrid.createDiv({ cls: "ghs-conflict-preview-col" });
+      localCol.createEl("strong", { text: "Local content preview" });
+      localCol.createEl("pre", { text: info.localContentPreview || "[Empty]" });
+      
+      const remoteCol = previewGrid.createDiv({ cls: "ghs-conflict-preview-col" });
+      remoteCol.createEl("strong", { text: "Remote content preview" });
+      remoteCol.createEl("pre", { text: info.remoteContentPreview || "[Empty]" });
+    }
 
     contentEl.createEl("p", { text: "Which version do you want to keep?" });
 

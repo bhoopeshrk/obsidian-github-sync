@@ -244,17 +244,49 @@ export class SyncEngine {
 								conflicts++;
 								continue;
 							}
-							if (localFile) {
+							if (localFile && remoteSha) {
 								const localContent = await this.app.vault.readBinary(localFile);
 								const localLines = new TextDecoder().decode(localContent).split('\n').length;
+
+								let remoteContentPreview = "";
+								let remoteLines = 0;
+								let remoteTimestamp = 0;
+								try {
+									const remoteBuffer = await this.api.downloadBlob(repo, remoteSha);
+									remoteLines = new TextDecoder().decode(remoteBuffer).split('\n').length;
+									if (isTextFile(path)) {
+										remoteContentPreview = new TextDecoder().decode(remoteBuffer)
+											.split('\n')
+											.slice(0, 15)
+											.join('\n');
+									} else {
+										remoteContentPreview = "[Binary File]";
+									}
+									remoteTimestamp = await this.api.getFileLastModified(repo, path);
+								} catch {
+									// ignore download error and proceed with defaults
+								}
+
+								let localContentPreview = "";
+								if (isTextFile(path)) {
+									localContentPreview = new TextDecoder().decode(localContent)
+										.split('\n')
+										.slice(0, 15)
+										.join('\n');
+								} else {
+									localContentPreview = "[Binary File]";
+								}
+
 								const conflictInfo: ConflictInfo = {
 									filePath: path,
 									localSize: localContent.byteLength,
 									localLines,
 									remoteSize,
-									remoteLines: 0,
+									remoteLines,
 									localTimestamp: localFile.stat.mtime,
-									remoteTimestamp: 0,
+									remoteTimestamp,
+									localContentPreview,
+									remoteContentPreview,
 								};
 								await this.promptConflictResolution(
 									conflictInfo,

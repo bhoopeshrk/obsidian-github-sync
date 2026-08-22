@@ -14,6 +14,8 @@ export interface ConflictInfo {
   remoteLines: number;
   localTimestamp: number;
   remoteTimestamp: number;
+  localContentPreview?: string;
+  remoteContentPreview?: string;
 }
 
 export interface SyncLogEntry {
