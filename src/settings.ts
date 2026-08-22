@@ -13,10 +13,6 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 		super(app, plugin);
 	}
 
-	getSettingDefinitions() {
-		return [];
-	}
-
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
