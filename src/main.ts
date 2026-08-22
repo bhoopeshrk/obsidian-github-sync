@@ -185,6 +185,12 @@ export default class GitHubSyncPlugin extends Plugin {
 		const iconEl = this.statusBarEl.createSpan({ cls: 'ghs-status-icon' });
 		const textEl = this.statusBarEl.createSpan({ cls: 'ghs-status-text' });
 
+		if (Platform.isMobile) {
+			textEl.style.display = 'none';
+		} else {
+			textEl.style.display = 'inline';
+		}
+
 		switch (status) {
 			case 'needs-setup':
 				setIcon(iconEl, 'alert-circle');
@@ -200,7 +206,10 @@ export default class GitHubSyncPlugin extends Plugin {
 				setIcon(iconEl, 'cloud');
 				textEl.setText(' synced');
 				this.statusBarEl.addClass('ghs-status-idle');
-				this.statusBarEl.title = `GitHub sync: Up to date.\nLast sync: ${dateStr}`;
+				this.statusBarEl.title = `GitHub sync: Up to date.\nLast sync: ${dateStr}\nClick to sync now`;
+				this.statusBarEl.onclick = () => {
+					void this.triggerSync(false);
+				};
 				break;
 			case 'syncing':
 				setIcon(iconEl, 'refresh-cw');
@@ -214,15 +223,25 @@ export default class GitHubSyncPlugin extends Plugin {
 				textEl.setText(' Offline');
 				this.statusBarEl.addClass('ghs-status-offline');
 				this.statusBarEl.title =
-					'GitHub sync: Device is offline. Sync suspended.';
+					'GitHub sync: Device is offline. Click to view log.';
+				this.statusBarEl.onclick = () => {
+					void this.showSyncLogModal();
+				};
 				break;
 			case 'error':
 				setIcon(iconEl, 'alert-triangle');
 				textEl.setText(' sync error');
 				this.statusBarEl.addClass('ghs-status-error');
-				this.statusBarEl.title = `GitHub sync: Sync failed.\nError: ${detail}`;
+				this.statusBarEl.title = `GitHub sync: Sync failed.\nError: ${detail}\nClick to view log`;
+				this.statusBarEl.onclick = () => {
+					void this.showSyncLogModal();
+				};
 				break;
 		}
+	}
+
+	async showSyncLogModal() {
+		// To be implemented in Phase 11
 	}
 
 	setupScheduler() {
