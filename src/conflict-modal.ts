@@ -16,6 +16,7 @@ export class ConflictModal extends Modal {
     const { contentEl } = this;
     const info = this.info;
 
+    this.modalEl.addClass("ghs-conflict-modal");
     contentEl.createEl("h3", { text: "Sync conflict detected" });
     contentEl.createEl("p", {
       text: `Both you and GitHub modified: ${info.filePath}`,
