@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, TextComponent, ButtonComponent } from "obsidian";
+import { App, PluginSettingTab, Setting, TextComponent, ButtonComponent, setIcon } from "obsidian";
 import type GitHubSyncPlugin from "./main";
 
 export class GitHubSyncSettingTab extends PluginSettingTab {
@@ -61,7 +61,10 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 
 	private renderClassicSection(containerEl: HTMLElement): void {
 		const callout = containerEl.createDiv({ cls: "ghs-auth-callout" });
-		callout.createEl("strong", { text: "Automatic multi-vault mode:" });
+		const titleEl = callout.createEl("div", { cls: "ghs-auth-callout-title" });
+		const iconSpan = titleEl.createSpan({ cls: "ghs-auth-callout-icon" });
+		setIcon(iconSpan, "info");
+		titleEl.createEl("strong", { text: " Automatic multi-vault mode:" });
 		const list = callout.createEl("ul");
 		list.createEl("li", { text: "Creates a private repo matching your vault name automatically." });
 		const tokenLi = list.createEl("li");
@@ -107,7 +110,10 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 
 	private renderFineGrainedSection(containerEl: HTMLElement): void {
 		const callout = containerEl.createDiv({ cls: "ghs-auth-callout" });
-		callout.createEl("strong", { text: "Scoped security mode:" });
+		const titleEl = callout.createEl("div", { cls: "ghs-auth-callout-title" });
+		const iconSpan = titleEl.createSpan({ cls: "ghs-auth-callout-icon" });
+		setIcon(iconSpan, "shield");
+		titleEl.createEl("strong", { text: " Scoped security mode:" });
 		const list = callout.createEl("ul");
 		const step1 = list.createEl("li");
 		step1.createEl("a", {
@@ -305,18 +311,16 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 
 		const patterns = this.ignorePatterns.filter((p) => !p.startsWith("#") && p.length > 0);
 
-		const listDiv = containerEl.createDiv({ cls: "ghs-ignore-list" });
+		const listDiv = containerEl.createDiv({ cls: "ghs-tag-container" });
 
 		if (patterns.length === 0) {
 			listDiv.createDiv({ text: "No ignore patterns configured.", cls: "ghs-ignore-empty" });
 		} else {
 			for (const pattern of patterns) {
-				const row = listDiv.createDiv({ cls: "ghs-ignore-row" });
-				row.createEl("code", { text: pattern });
-				const removeBtn = row.createEl("a", {
-					text: "remove",
-					attr: { href: "#" },
-				});
+				const tag = listDiv.createDiv({ cls: "ghs-tag" });
+				tag.createSpan({ text: pattern, cls: "ghs-tag-label" });
+				const removeBtn = tag.createSpan({ cls: "ghs-tag-remove" });
+				setIcon(removeBtn, "x");
 				removeBtn.addEventListener("click", (e) => {
 					e.preventDefault();
 					void (async () => {
@@ -324,6 +328,7 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 						if (idx !== -1) this.ignorePatterns.splice(idx, 1);
 						await this.saveIgnorePatterns();
 						listDiv.remove();
+						addDiv.remove();
 						this.renderIgnorePatterns(containerEl);
 					})();
 				});
@@ -333,9 +338,12 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 		const addDiv = containerEl.createDiv({ cls: "ghs-ignore-input-row" });
 		const addInput = addDiv.createEl("input", {
 			type: "text",
+			cls: "ghs-ignore-input",
 			attr: { placeholder: "New pattern (e.g. *.log)" },
 		});
-		const addBtn = addDiv.createEl("button", { text: "Add" });
+		const addBtn = addDiv.createEl("button", { cls: "mod-cta" });
+		setIcon(addBtn, "plus");
+		addBtn.createSpan({ text: " Add" });
 		addBtn.addEventListener("click", () => {
 			void (async () => {
 				const val = addInput.value.trim();
