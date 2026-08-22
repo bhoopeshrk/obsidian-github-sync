@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS, GitHubSyncSettings } from './types';
 import { GitHubSyncSettingTab } from './settings';
 import { GitHubApiClient } from './github-api';
 import { SyncEngine } from './sync-engine';
+import { SyncLogModal } from './sync-log-modal';
 
 export default class GitHubSyncPlugin extends Plugin {
 	settings!: GitHubSyncSettings;
@@ -225,7 +226,7 @@ export default class GitHubSyncPlugin extends Plugin {
 				this.statusBarEl.title =
 					'GitHub sync: Device is offline. Click to view log.';
 				this.statusBarEl.onclick = () => {
-					void this.showSyncLogModal();
+					this.openSyncLog();
 				};
 				break;
 			case 'error':
@@ -234,15 +235,13 @@ export default class GitHubSyncPlugin extends Plugin {
 				this.statusBarEl.addClass('ghs-status-error');
 				this.statusBarEl.title = `GitHub sync: Sync failed.\nError: ${detail}\nClick to view log`;
 				this.statusBarEl.onclick = () => {
-					void this.showSyncLogModal();
+					this.openSyncLog();
 				};
 				break;
 		}
 	}
 
-	async showSyncLogModal() {
-		// To be implemented in Phase 11
-	}
+
 
 	setupScheduler() {
 		if (this.syncIntervalId) window.clearInterval(this.syncIntervalId);
@@ -268,20 +267,7 @@ export default class GitHubSyncPlugin extends Plugin {
 	}
 
 	private openSyncLog() {
-		const entries = this.settings.syncLog.slice().reverse();
-		if (entries.length === 0) {
-			new Notice('Sync log is empty.');
-			return;
-		}
-		const lines = entries.map((e) => {
-			const date = moment(e.timestamp).format('YYYY-MM-DD HH:mm:ss');
-			const status = e.error
-				? `ERROR: ${e.error}`
-				: `OK: \u2191${e.uploaded} \u2193${e.downloaded}`;
-			const extra = e.conflicts > 0 ? ` conflicts:${e.conflicts}` : '';
-			return `${date} [${e.hostname}] ${e.mode} ${status}${extra} (${e.duration}ms)`;
-		});
-		new Notice(lines.join('\n'), 15000);
+		new SyncLogModal(this.app, this.settings, this.clearSyncLog.bind(this)).open();
 	}
 
 	private async clearSyncLog() {
