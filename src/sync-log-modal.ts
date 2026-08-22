@@ -35,6 +35,7 @@ export class SyncLogModal extends Modal {
 		// Render logs in reverse chronological order
 		for (let i = logs.length - 1; i >= 0; i--) {
 			const entry = logs[i];
+			if (!entry) continue;
 			const row = table.createEl("tr");
 			
 			// Time
@@ -73,10 +74,11 @@ export class SyncLogModal extends Modal {
 		const copyBtn = actionDiv.createEl("button", { text: "Copy logs" });
 		copyBtn.addEventListener("click", () => {
 			const text = logs.map(e => {
+				if (!e) return "";
 				const time = moment(e.timestamp).format("YYYY-MM-DD HH:mm:ss");
 				const status = e.error ? `ERROR: ${e.error}` : `SUCCESS (up:${e.uploaded} down:${e.downloaded} conf:${e.conflicts})`;
 				return `[${time}] [${e.hostname}] [${e.mode}] ${status} (${e.duration}ms)`;
-			}).join("\n");
+			}).filter(t => t.length > 0).join("\n");
 			void navigator.clipboard.writeText(text).then(() => {
 				copyBtn.setText("Copied!");
 				window.setTimeout(() => copyBtn.setText("Copy logs"), 2000);

@@ -187,9 +187,9 @@ export default class GitHubSyncPlugin extends Plugin {
 		const textEl = this.statusBarEl.createSpan({ cls: 'ghs-status-text' });
 
 		if (Platform.isMobile) {
-			textEl.style.display = 'none';
+			textEl.addClass('ghs-status-text-hidden');
 		} else {
-			textEl.style.display = 'inline';
+			textEl.removeClass('ghs-status-text-hidden');
 		}
 
 		switch (status) {

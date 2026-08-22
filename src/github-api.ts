@@ -184,4 +184,19 @@ export class GitHubApiClient {
 			return { success: false, message };
 		}
 	}
+
+	async getFileLastModified(repo: string, path: string): Promise<number> {
+		try {
+			const commits = await this.request(`/repos/${this.username}/${repo}/commits?path=${encodeURIComponent(path)}&page=1&per_page=1`) as { commit: { committer: { date: string } } }[];
+			if (commits && commits.length > 0) {
+				const firstCommit = commits[0];
+				if (firstCommit && firstCommit.commit && firstCommit.commit.committer) {
+					return Date.parse(firstCommit.commit.committer.date);
+				}
+			}
+		} catch {
+			// ignore
+		}
+		return 0;
+	}
 }
