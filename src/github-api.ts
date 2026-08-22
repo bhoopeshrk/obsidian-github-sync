@@ -20,6 +20,13 @@ interface GitHubCommit {
 	sha: string;
 }
 
+export class GitHubApiError extends Error {
+	constructor(public status: number, message: string) {
+		super(message);
+		this.name = 'GitHubApiError';
+	}
+}
+
 export class GitHubApiClient {
 	constructor(private token: string, private username: string, private apiUrl: string) {}
 
@@ -45,7 +52,9 @@ export class GitHubApiClient {
 				throw new Error(`GitHub API rate limited. Resuming in ~${waitMin} minute${waitMin === 1 ? '' : 's'}.`);
 			}
 		}
-		if (response.status >= 400) throw new Error(this.mapHttpError(response.status, response.text));
+		if (response.status >= 400) {
+			throw new GitHubApiError(response.status, this.mapHttpError(response.status, response.text));
+		}
 		return response.json as unknown;
 	}
 
@@ -80,8 +89,39 @@ export class GitHubApiClient {
 	}
 
 	async getLatestCommitSha(repo: string, branch = 'main'): Promise<string> {
-		const ref = await this.request(`/repos/${this.username}/${repo}/git/ref/heads/${branch}`) as GitHubRef;
-		return ref.object.sha;
+		try {
+			const ref = await this.request(`/repos/${this.username}/${repo}/git/ref/heads/${branch}`) as GitHubRef;
+			return ref.object.sha;
+		} catch (e: unknown) {
+			if (e instanceof GitHubApiError && e.status === 404) {
+				try {
+					// Check if repo actually exists (if it doesn't exist, this throws 404)
+					await this.request(`/repos/${this.username}/${repo}`);
+					
+					// Repo exists, but branch heads/branch does not exist. Initialize it.
+					const commit = await this.request(`/repos/${this.username}/${repo}/git/commits`, {
+						method: 'POST',
+						body: JSON.stringify({
+							message: 'Initial commit (SyncGit)',
+							tree: '4b825dc642cb6eb9a060e54bf8d69288fbee4904',
+							parents: [],
+						}),
+					}) as GitHubCommit;
+					
+					await this.request(`/repos/${this.username}/${repo}/git/refs`, {
+						method: 'POST',
+						body: JSON.stringify({
+							ref: `refs/heads/${branch}`,
+							sha: commit.sha,
+						}),
+					});
+					return commit.sha;
+				} catch (innerError) {
+					throw e;
+				}
+			}
+			throw e;
+		}
 	}
 
 	async getTree(repo: string, treeSha: string): Promise<GitHubTree> {
