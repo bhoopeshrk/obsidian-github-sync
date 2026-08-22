@@ -54,6 +54,7 @@ export class ConflictModal extends Modal {
       .addButton((b) =>
         b
           .setButtonText("Keep local")
+          .setIcon("monitor")
           .onClick(() => {
             this.resolved = true;
             this.resolve("local");
@@ -63,6 +64,7 @@ export class ConflictModal extends Modal {
       .addButton((b) =>
         b
           .setButtonText("Keep remote")
+          .setIcon("cloud")
           .onClick(() => {
             this.resolved = true;
             this.resolve("remote");
@@ -72,6 +74,7 @@ export class ConflictModal extends Modal {
       .addButton((b) =>
         b
           .setButtonText("Keep both")
+          .setIcon("copy")
           .setCta()
           .onClick(() => {
             this.resolved = true;
