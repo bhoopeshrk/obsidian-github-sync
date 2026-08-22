@@ -61,7 +61,7 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 
 	private renderClassicSection(containerEl: HTMLElement): void {
 		const callout = containerEl.createDiv({ cls: "ghs-auth-callout" });
-		const titleEl = callout.createEl("div", { cls: "ghs-auth-callout-title" });
+		const titleEl = callout.createDiv({ cls: "ghs-auth-callout-title" });
 		const iconSpan = titleEl.createSpan({ cls: "ghs-auth-callout-icon" });
 		setIcon(iconSpan, "info");
 		titleEl.createEl("strong", { text: " Automatic multi-vault mode:" });
@@ -110,7 +110,7 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 
 	private renderFineGrainedSection(containerEl: HTMLElement): void {
 		const callout = containerEl.createDiv({ cls: "ghs-auth-callout" });
-		const titleEl = callout.createEl("div", { cls: "ghs-auth-callout-title" });
+		const titleEl = callout.createDiv({ cls: "ghs-auth-callout-title" });
 		const iconSpan = titleEl.createSpan({ cls: "ghs-auth-callout-icon" });
 		setIcon(iconSpan, "shield");
 		titleEl.createEl("strong", { text: " Scoped security mode:" });
