@@ -1,4 +1,4 @@
-import { App, Notice, moment, normalizePath } from 'obsidian';
+import { App, Notice, moment, normalizePath, TFile } from 'obsidian';
 import { GitHubApiClient } from './github-api';
 import { GitHubSyncSettings, ConflictInfo } from './types';
 import {
@@ -7,6 +7,7 @@ import {
 	generateCommitMessage,
 	isTextFile,
 	normalizeTextBuffer,
+	globToRegex,
 } from './utils';
 import { ConflictModal } from './conflict-modal';
 
@@ -20,7 +21,7 @@ export interface SyncResult {
 }
 
 export class SyncEngine {
-	private ignorePatterns: string[] = [];
+	private ignoreRegexes: RegExp[] = [];
 
 	constructor(
 		private app: App,
@@ -67,20 +68,21 @@ export class SyncEngine {
 		if (path.startsWith(`${configDir}/`) || path.includes('.trash'))
 			return true;
 
-		for (const pattern of this.ignorePatterns) {
-			if (pattern && path.includes(pattern)) return true;
+		for (const regex of this.ignoreRegexes) {
+			if (regex.test(path)) return true;
 		}
 		return false;
 	}
 
-	private async loadIgnoreFile(): Promise<string[]> {
+	private async loadIgnoreFile(): Promise<RegExp[]> {
 		const ignoreFile = `${this.app.vault.configDir}/.obsidian-sync-ignore`;
 		try {
 			const content = await this.app.vault.adapter.read(ignoreFile);
 			return content
 				.split('\n')
 				.map((l) => l.trim())
-				.filter((l) => l.length > 0 && !l.startsWith('#'));
+				.filter((l) => l.length > 0 && !l.startsWith('#'))
+				.map((pattern) => globToRegex(pattern));
 		} catch {
 			return [];
 		}
@@ -90,7 +92,7 @@ export class SyncEngine {
 		isAuto = false,
 		onProgress?: (text: string) => void,
 	): Promise<SyncResult> {
-		this.ignorePatterns = await this.loadIgnoreFile();
+		this.ignoreRegexes = await this.loadIgnoreFile();
 		const startTime = Date.now();
 		let retries = 3;
 		while (retries > 0) {
@@ -140,9 +142,7 @@ export class SyncEngine {
 					if (cache && cache.mtime === mtime && cache.size === size) {
 						localHashes.set(file.path, cache.sha);
 					} else {
-						let buffer = await this.app.vault.adapter.readBinary(
-							file.path,
-						);
+						let buffer = await this.app.vault.readBinary(file);
 						if (isTextFile(file.path)) {
 							buffer = normalizeTextBuffer(buffer);
 						}
@@ -211,7 +211,13 @@ export class SyncEngine {
 					const localSha = localHashes.get(path);
 					const baseSha = this.settings.lastSyncState[path];
 
-					if (localSha === remoteSha) continue;
+					if (localSha === remoteSha) {
+						if (remoteSha && this.settings.lastSyncState[path] !== remoteSha) {
+							this.settings.lastSyncState[path] = remoteSha;
+							stateChanged = true;
+						}
+						continue;
+					}
 
 					if (!localSha && remoteSha) {
 						if (baseSha === remoteSha) {
@@ -220,7 +226,7 @@ export class SyncEngine {
 							filesToDownload.push(path);
 						}
 					} else if (localSha && !remoteSha) {
-						if (baseSha === localSha || !baseSha) {
+						if (baseSha === localSha) {
 							filesToDeleteLocally.push(path);
 						} else {
 							filesToUpload.push(path);
@@ -233,26 +239,30 @@ export class SyncEngine {
 							localSha !== remoteSha
 						) {
 							filesToUpload.push(path);
-						} else if (!baseSha) {
-							filesToDownload.push(path);
 						} else {
-							const localContent = await this.app.vault.adapter.readBinary(path);
-							const localLines = new TextDecoder().decode(localContent).split('\n').length;
-							const conflictInfo: ConflictInfo = {
-								filePath: path,
-								localSize: localContent.byteLength,
-								localLines,
-								remoteSize,
-								remoteLines: 0,
-								localTimestamp: localFile?.stat.mtime ?? 0,
-								remoteTimestamp: 0,
-							};
-							await this.promptConflictResolution(
-								conflictInfo,
-								filesToUpload,
-								filesToDownload,
-							);
-							conflicts++;
+							if (isAuto) {
+								conflicts++;
+								continue;
+							}
+							if (localFile) {
+								const localContent = await this.app.vault.readBinary(localFile);
+								const localLines = new TextDecoder().decode(localContent).split('\n').length;
+								const conflictInfo: ConflictInfo = {
+									filePath: path,
+									localSize: localContent.byteLength,
+									localLines,
+									remoteSize,
+									remoteLines: 0,
+									localTimestamp: localFile.stat.mtime,
+									remoteTimestamp: 0,
+								};
+								await this.promptConflictResolution(
+									conflictInfo,
+									filesToUpload,
+									filesToDownload,
+								);
+								conflicts++;
+							}
 						}
 					}
 				}
@@ -279,20 +289,18 @@ export class SyncEngine {
 					const normalizedPath = normalizePath(path);
 					const existingFile =
 						this.app.vault.getAbstractFileByPath(normalizedPath);
-					if (existingFile) {
-						await this.app.vault.adapter.writeBinary(
-							normalizedPath,
+					if (existingFile instanceof TFile) {
+						await this.app.vault.modifyBinary(
+							existingFile,
 							buffer,
 						);
 					} else {
 						const folders = normalizedPath.split('/');
 						folders.pop();
 						if (folders.length > 0) {
-							const dir = normalizePath(folders.join('/'));
-							if (!(await this.app.vault.adapter.exists(dir)))
-								await this.app.vault.adapter.mkdir(dir);
+							await this.ensureDirectoryExists(folders.join('/'));
 						}
-						await this.app.vault.adapter.writeBinary(
+						await this.app.vault.createBinary(
 							normalizedPath,
 							buffer,
 						);
@@ -316,8 +324,9 @@ export class SyncEngine {
 					for (let i = 0; i < totalUploads; i++) {
 						const path = filesToUpload[i]!;
 						onProgress?.(`Syncing... ${i + 1}/${totalUploads}`);
-						let buffer =
-							await this.app.vault.adapter.readBinary(path);
+						const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
+						if (!(file instanceof TFile)) continue;
+						let buffer = await this.app.vault.readBinary(file);
 						if (isTextFile(path)) {
 							buffer = normalizeTextBuffer(buffer);
 						}
@@ -494,5 +503,26 @@ export class SyncEngine {
 				}
 			}).open();
 		});
+	}
+
+	private async ensureDirectoryExists(path: string): Promise<void> {
+		const folders = path.split('/');
+		let currentPath = '';
+		for (const folder of folders) {
+			if (currentPath) {
+				currentPath = currentPath + '/' + folder;
+			} else {
+				currentPath = folder;
+			}
+			const normalized = normalizePath(currentPath);
+			const abstractFile = this.app.vault.getAbstractFileByPath(normalized);
+			if (!abstractFile) {
+				try {
+					await this.app.vault.createFolder(normalized);
+				} catch {
+					// Ignore error if it was created concurrently
+				}
+			}
+		}
 	}
 }

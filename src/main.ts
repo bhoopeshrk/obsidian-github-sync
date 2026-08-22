@@ -120,7 +120,11 @@ export default class GitHubSyncPlugin extends Plugin {
 			});
 			this.settings.lastSyncTime = Date.now();
 			await this.saveSettings();
-			this.updateStatusBar('idle');
+			if (result.conflicts > 0) {
+				this.updateStatusBar('error', `${result.conflicts} conflict${result.conflicts > 1 ? 's' : ''} detected. Run manual sync.`);
+			} else {
+				this.updateStatusBar('idle');
+			}
 
 			const entry = {
 				timestamp: Date.now(),
