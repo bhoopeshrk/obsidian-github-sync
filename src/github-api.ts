@@ -161,4 +161,27 @@ export class GitHubApiClient {
 			body: JSON.stringify({ sha: commit.sha, force: false }),
 		});
 	}
+
+	async testConnection(repo: string): Promise<{ success: boolean; message: string }> {
+		try {
+			// Verify token validity by requesting user profile
+			await this.request('/user');
+			
+			// If a repository name is specified, verify we have access or if it's new
+			if (repo && repo.trim() !== '') {
+				try {
+					await this.request(`/repos/${this.username}/${repo}`);
+				} catch (repoErr) {
+					if (repoErr instanceof GitHubApiError && repoErr.status === 404) {
+						return { success: true, message: 'Token is valid. Repository does not exist yet and will be created.' };
+					}
+					throw repoErr;
+				}
+			}
+			return { success: true, message: 'Connection successful!' };
+		} catch (e: unknown) {
+			const message = e instanceof Error ? e.message : String(e);
+			return { success: false, message };
+		}
+	}
 }

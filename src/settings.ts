@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting, TextComponent, ButtonComponent, setIcon } from "obsidian";
 import type GitHubSyncPlugin from "./main";
+import { GitHubApiClient } from "./github-api";
 
 export class GitHubSyncSettingTab extends PluginSettingTab {
 	private ignorePatterns: string[] = [];
@@ -81,31 +82,47 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("GitHub username")
-			.addText((t: TextComponent) =>
-				t
-					.setPlaceholder("octocat")
+			.addText((t: TextComponent) => {
+				t.setPlaceholder("octocat")
 					.setValue(this.plugin.settings.githubUsername)
 					.onChange(async (v: string) => {
-						this.plugin.settings.githubUsername = v.trim();
+						const val = v.trim();
+						if (val !== v || v.includes(" ")) {
+							t.inputEl.addClass("ghs-input-invalid");
+						} else {
+							t.inputEl.removeClass("ghs-input-invalid");
+						}
+						this.plugin.settings.githubUsername = val;
 						await this.plugin.saveSettings(true);
 						this.plugin.reinitEngine();
-					}),
-			);
+					});
+				const initialVal = this.plugin.settings.githubUsername;
+				if (initialVal.includes(" ")) t.inputEl.addClass("ghs-input-invalid");
+			});
 
 		this.addTokenSetting(containerEl, "classic");
 
 		new Setting(containerEl)
 			.setName("Custom repository name (optional)")
 			.setDesc("Leave blank to auto-derive from vault name, or specify an existing repo to connect to.")
-			.addText((text: TextComponent) =>
-				text
-					.setPlaceholder(`obsidian-${this.app.vault.getName().toLowerCase()}`)
+			.addText((text: TextComponent) => {
+				text.setPlaceholder(`obsidian-${this.app.vault.getName().toLowerCase()}`)
 					.setValue(this.plugin.settings.customRepoName || "")
 					.onChange(async (val: string) => {
-						this.plugin.settings.customRepoName = val.trim();
+						const trimmed = val.trim();
+						if (trimmed !== val || val.includes(" ")) {
+							text.inputEl.addClass("ghs-input-invalid");
+						} else {
+							text.inputEl.removeClass("ghs-input-invalid");
+						}
+						this.plugin.settings.customRepoName = trimmed;
 						await this.plugin.saveSettings(true);
-					}),
-			);
+					});
+				const initialVal = this.plugin.settings.customRepoName || "";
+				if (initialVal.includes(" ")) text.inputEl.addClass("ghs-input-invalid");
+			});
+
+		this.addTestConnectionSetting(containerEl);
 	}
 
 	private renderFineGrainedSection(containerEl: HTMLElement): void {
@@ -132,31 +149,46 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("GitHub username")
-			.addText((t: TextComponent) =>
-				t
-					.setPlaceholder("octocat")
+			.addText((t: TextComponent) => {
+				t.setPlaceholder("octocat")
 					.setValue(this.plugin.settings.githubUsername)
 					.onChange(async (v: string) => {
-						this.plugin.settings.githubUsername = v.trim();
+						const val = v.trim();
+						if (val !== v || v.includes(" ")) {
+							t.inputEl.addClass("ghs-input-invalid");
+						} else {
+							t.inputEl.removeClass("ghs-input-invalid");
+						}
+						this.plugin.settings.githubUsername = val;
 						await this.plugin.saveSettings(true);
 						this.plugin.reinitEngine();
-					}),
-			);
+					});
+				const initialVal = this.plugin.settings.githubUsername;
+				if (initialVal.includes(" ")) t.inputEl.addClass("ghs-input-invalid");
+			});
 
 		new Setting(containerEl)
 			.setName("Target repository name")
 			.setDesc("The exact name of the existing GitHub repository.")
-			.addText((t: TextComponent) =>
-				t
-					.setPlaceholder("my-obsidian-vault")
+			.addText((t: TextComponent) => {
+				t.setPlaceholder("my-obsidian-vault")
 					.setValue(this.plugin.settings.customRepoName || "")
 					.onChange(async (v: string) => {
-						this.plugin.settings.customRepoName = v.trim();
+						const val = v.trim();
+						if (val !== v || v.includes(" ")) {
+							t.inputEl.addClass("ghs-input-invalid");
+						} else {
+							t.inputEl.removeClass("ghs-input-invalid");
+						}
+						this.plugin.settings.customRepoName = val;
 						await this.plugin.saveSettings(true);
-					}),
-			);
+					});
+				const initialVal = this.plugin.settings.customRepoName || "";
+				if (initialVal.includes(" ")) t.inputEl.addClass("ghs-input-invalid");
+			});
 
 		this.addTokenSetting(containerEl, "fine-grained");
+		this.addTestConnectionSetting(containerEl);
 	}
 
 	private addTokenSetting(containerEl: HTMLElement, mode: "classic" | "fine-grained"): void {
@@ -169,16 +201,28 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 			.setDesc(desc);
 		setting.settingEl.addClass("ghs-token-setting");
 
+		const securedBadge = setting.nameEl.createSpan({ cls: "ghs-secured-badge" });
+		setIcon(securedBadge, "lock");
+		securedBadge.createSpan({ text: " LocalStorage" });
+
 		setting.addText((t: TextComponent) => {
 			t.inputEl.type = "password";
 			t.inputEl.addClass("ghs-token-input");
 			t.setPlaceholder(placeholder)
 				.setValue(this.plugin.settings.personalAccessToken)
 				.onChange(async (v: string) => {
-					this.plugin.settings.personalAccessToken = v.trim();
+					const val = v.trim();
+					if (val !== v || v.includes(" ")) {
+						t.inputEl.addClass("ghs-input-invalid");
+					} else {
+						t.inputEl.removeClass("ghs-input-invalid");
+					}
+					this.plugin.settings.personalAccessToken = val;
 					await this.plugin.saveSettings(true);
 					this.plugin.reinitEngine();
 				});
+			const initialVal = this.plugin.settings.personalAccessToken || "";
+			if (initialVal.includes(" ")) t.inputEl.addClass("ghs-input-invalid");
 		});
 
 		let showToken = false;
@@ -228,19 +272,34 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Sync frequency (minutes)")
-			.setDesc("Set to 0 to disable periodic background sync.")
-			.addText((t: TextComponent) =>
-				t
-					.setPlaceholder("15")
-					.setValue(String(this.plugin.settings.syncFrequencyMinutes))
+			.setName("Sync frequency")
+			.setDesc("How often to sync in the background.")
+			.addDropdown((d) => {
+				const current = this.plugin.settings.syncFrequencyMinutes;
+				const options: Record<string, string> = {
+					"0": "Disabled",
+					"1": "Every 1 minute",
+					"5": "Every 5 minutes",
+					"15": "Every 15 minutes",
+					"30": "Every 30 minutes",
+					"60": "Every 1 hour",
+					"720": "Every 12 hours",
+					"1440": "Every 24 hours"
+				};
+				if (current !== undefined && !(String(current) in options)) {
+					options[String(current)] = `Every ${current} minutes`;
+				}
+				for (const [val, label] of Object.entries(options)) {
+					d.addOption(val, label);
+				}
+				d.setValue(String(current))
 					.onChange(async (v: string) => {
 						const num = parseInt(v, 10);
-						this.plugin.settings.syncFrequencyMinutes = isNaN(num) ? 0 : Math.max(0, Math.min(1440, num));
+						this.plugin.settings.syncFrequencyMinutes = isNaN(num) ? 0 : num;
 						await this.plugin.saveSettings(true);
 						this.plugin.restartScheduler();
-					}),
-			);
+					});
+			});
 	}
 
 	// ─── Advanced ─────────────────────────────────────────────
@@ -355,6 +414,53 @@ export class GitHubSyncSettingTab extends PluginSettingTab {
 					this.renderIgnorePatterns(containerEl);
 				}
 			})();
+		});
+	}
+
+	private addTestConnectionSetting(containerEl: HTMLElement): void {
+		const testSetting = new Setting(containerEl)
+			.setName("Connection test")
+			.setDesc("Verify credentials and connection with GitHub API.");
+		
+		let statusSpan: HTMLSpanElement | null = null;
+		
+		testSetting.addButton((b) => {
+			b.setButtonText("Test connection")
+				.onClick(async () => {
+					b.setDisabled(true);
+					if (statusSpan) {
+						statusSpan.remove();
+					}
+					statusSpan = testSetting.settingEl.createSpan({ cls: "ghs-test-status ghs-test-status-loading" });
+					setIcon(statusSpan, "refresh-cw");
+					statusSpan.createSpan({ text: " Testing..." });
+					
+					// Resolve target repo name
+					const repoName = this.plugin.settings.customRepoName || 
+						(this.plugin.settings.authMode === 'auto_classic' 
+							? `obsidian-${this.app.vault.getName().toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}` 
+							: '');
+
+					const api = new GitHubApiClient(
+						this.plugin.settings.personalAccessToken,
+						this.plugin.settings.githubUsername,
+						this.plugin.settings.githubApiUrl || 'https://api.github.com'
+					);
+					
+					const result = await api.testConnection(repoName);
+					
+					statusSpan.remove();
+					if (result.success) {
+						statusSpan = testSetting.settingEl.createSpan({ cls: "ghs-test-status ghs-test-status-success" });
+						setIcon(statusSpan, "check-circle");
+						statusSpan.createSpan({ text: ` ${result.message}` });
+					} else {
+						statusSpan = testSetting.settingEl.createSpan({ cls: "ghs-test-status ghs-test-status-error" });
+						setIcon(statusSpan, "alert-triangle");
+						statusSpan.createSpan({ text: ` Failed: ${result.message}` });
+					}
+					b.setDisabled(false);
+				});
 		});
 	}
 }
