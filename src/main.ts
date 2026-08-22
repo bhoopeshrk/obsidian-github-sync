@@ -1,4 +1,4 @@
-import { Plugin, Platform, Notice, moment } from 'obsidian';
+import { Plugin, Platform, Notice, moment, setIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, GitHubSyncSettings } from './types';
 import { GitHubSyncSettingTab } from './settings';
 import { GitHubApiClient } from './github-api';
@@ -178,11 +178,18 @@ export default class GitHubSyncPlugin extends Plugin {
 				? moment(this.settings.lastSyncTime).format('HH:mm:ss')
 				: 'Never';
 
+		this.statusBarEl.empty();
+		this.statusBarEl.className = 'status-bar-item plugin-sync-git'; // reset classes
 		this.statusBarEl.onclick = null;
+
+		const iconEl = this.statusBarEl.createSpan({ cls: 'ghs-status-icon' });
+		const textEl = this.statusBarEl.createSpan({ cls: 'ghs-status-text' });
 
 		switch (status) {
 			case 'needs-setup':
-				this.statusBarEl.setText('\u26a1 GitHub sync');
+				setIcon(iconEl, 'alert-circle');
+				textEl.setText(' GitHub sync');
+				this.statusBarEl.addClass('ghs-status-needs-setup');
 				this.statusBarEl.title =
 					'Not configured \u2014 click to open settings';
 				this.statusBarEl.onclick = () => {
@@ -190,20 +197,29 @@ export default class GitHubSyncPlugin extends Plugin {
 				};
 				break;
 			case 'idle':
-				this.statusBarEl.setText('\u2601\ufe0f synced');
+				setIcon(iconEl, 'cloud');
+				textEl.setText(' synced');
+				this.statusBarEl.addClass('ghs-status-idle');
 				this.statusBarEl.title = `GitHub sync: Up to date.\nLast sync: ${dateStr}`;
 				break;
 			case 'syncing':
-				this.statusBarEl.setText('\u{1f504} Syncing...');
+				setIcon(iconEl, 'refresh-cw');
+				iconEl.addClass('ghs-spin');
+				textEl.setText(' Syncing...');
+				this.statusBarEl.addClass('ghs-status-syncing');
 				this.statusBarEl.title = 'GitHub sync: Sync in progress...';
 				break;
 			case 'offline':
-				this.statusBarEl.setText('\u{1f4a4} Offline');
+				setIcon(iconEl, 'cloud-off');
+				textEl.setText(' Offline');
+				this.statusBarEl.addClass('ghs-status-offline');
 				this.statusBarEl.title =
 					'GitHub sync: Device is offline. Sync suspended.';
 				break;
 			case 'error':
-				this.statusBarEl.setText('\u26a0\ufe0f sync error');
+				setIcon(iconEl, 'alert-triangle');
+				textEl.setText(' sync error');
+				this.statusBarEl.addClass('ghs-status-error');
 				this.statusBarEl.title = `GitHub sync: Sync failed.\nError: ${detail}`;
 				break;
 		}
